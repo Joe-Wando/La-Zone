@@ -418,7 +418,6 @@ useEffect(function() {
           </div>
         )}
 
-        {/* UTILISATEURS */}
         {pageCourante === 'utilisateurs' && (
           <div className="rounded-2xl p-4 md:p-6"
             style={{ backgroundColor: '#111111', border: '1px solid #222222' }}>
