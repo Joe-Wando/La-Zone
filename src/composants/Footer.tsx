@@ -35,7 +35,8 @@ export default function Footer() {
                 <a href="tel:+221785268208"
                   className="text-sm font-semibold hover:underline transition"
                   style={{ color: '#00A651' }}>
-                  +221 78 526 82 08
+                  +221 78 526 82 08 <br />
+                  +221 78 837 97 02
                 </a>
               </div>
               <div>
@@ -43,7 +44,8 @@ export default function Footer() {
                 <a href="mailto:jonathan6wando@gmail.com"
                   className="text-sm font-semibold hover:underline transition"
                   style={{ color: '#00A651' }}>
-                  jonathan6wando@gmail.com
+                  jonathan6wando@gmail.com <br />
+                  ba2002coumba@gmail.com
                 </a>
               </div>
               <div>
