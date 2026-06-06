@@ -9,7 +9,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid
 } from 'recharts'
 
-const ADMINS = ["jonathan6wando@gmail.com", "ba2002coumba@gmail.com"]
+const ADMINS = ["jonathan6wando@gmail.com", "ba2002coumba@gmail.com", "nzinounoup@gmail.com"]
 
 export default function Admin() {
   const [utilisateur, setUtilisateur] = useState<any>(null)
