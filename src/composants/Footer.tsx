@@ -36,7 +36,8 @@ export default function Footer() {
                   className="text-sm font-semibold hover:underline transition"
                   style={{ color: '#00A651' }}>
                   +221 78 526 82 08 <br />
-                  +221 78 837 97 02
+                  +221 78 837 97 02 <br />
+                   +221 71 129 24 62 
                 </a>
               </div>
               <div>
@@ -45,7 +46,8 @@ export default function Footer() {
                   className="text-sm font-semibold hover:underline transition"
                   style={{ color: '#00A651' }}>
                   jonathan6wando@gmail.com <br />
-                  ba2002coumba@gmail.com
+                  ba2002coumba@gmail.com <br />
+                  nzinounoup@gmail.com
                 </a>
               </div>
               <div>

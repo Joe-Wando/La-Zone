@@ -9,7 +9,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid
 } from 'recharts'
 
-const ADMINS = ["jonathan6wando@gmail.com", "ba2002coumba@gmail.com"]
+const ADMINS = ["jonathan6wando@gmail.com", "ba2002coumba@gmail.com", "nzinounoup@gmail.com"]
 
 export default function Admin() {
   const [utilisateur, setUtilisateur] = useState<any>(null)
@@ -418,7 +418,6 @@ useEffect(function() {
           </div>
         )}
 
-        {/* UTILISATEURS */}
         {pageCourante === 'utilisateurs' && (
           <div className="rounded-2xl p-4 md:p-6"
             style={{ backgroundColor: '#111111', border: '1px solid #222222' }}>
