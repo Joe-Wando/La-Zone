@@ -1,0 +1,17 @@
+Plateforme de réservation de ticket ciné
+Nom de la plateforme: LAZONE
+
+Répartition des taches
+
+DIPO WANDO: authentification, inscription.tsx, connexion.tsx reinitialisationMotdepassse.tsx, app.tsx, acceuil.tsx, email.js, firebase.ts
+Branch: feature/auth-landing, fix/correction
+
+Coumba BA: pages réservations.tsx, films.tsx useFilms.ts, env.
+Branch: feature/films-reservation
+
+Précieux NZINOUNOU: pages admin.tsx, Dashboard.tsx
+Branch: feature/dashboard-admin
+
+Branch de travail commune: Develop
+
+Branch principale: Main

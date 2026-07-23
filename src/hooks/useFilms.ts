@@ -13,7 +13,7 @@ export function useFilms() {
   const [chargement, setChargement] = useState(true)
 
   useEffect(function() {
-    async function chargerFilms() {
+async function chargerFilms() {
       try {
         // On charge 5 pages en parallele
         const promesses = [1, 2, 3, 4, 5].map(function(page) {

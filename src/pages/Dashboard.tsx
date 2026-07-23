@@ -48,7 +48,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: '#0A0A0A' }}>
 
-      {/* En-tete */}
+
       <div className="mb-8">
         <p className="text-sm mb-1" style={{ color: '#888888' }}>Tableau de bord</p>
         <h1 className="text-2xl md:text-4xl font-bold text-white">
@@ -59,7 +59,7 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Cartes stats */}
+    
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="rounded-2xl p-5 md:p-6"
           style={{ background: 'linear-gradient(135deg, #00A651, #007A3D)' }}>
@@ -87,7 +87,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Liste reservations */}
+  
       <div className="rounded-2xl p-4 md:p-6"
         style={{ backgroundColor: '#111111', border: '1px solid #222222' }}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
