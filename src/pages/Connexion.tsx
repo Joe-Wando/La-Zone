@@ -140,14 +140,6 @@ async function connecter() {
               style={{ backgroundColor: '#0A0A0A', border: '1px solid #222222' }} />
           </div>
 
-          <div className="text-right mb-8">
-            <Link to="/reinitialisation"
-              className="text-sm hover:underline transition"
-              style={{ color: '#00A651' }}>
-              Mot de passe oublie ?
-            </Link>
-          </div>
-
           <button onClick={connecter} disabled={chargement}
             className="w-full py-3 rounded-xl font-bold text-lg transition disabled:opacity-50"
             style={{ backgroundColor: '#00A651', color: '#ffffff' }}>

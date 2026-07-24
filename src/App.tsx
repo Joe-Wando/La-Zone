@@ -8,7 +8,6 @@ import Reservation from './pages/Reservation'
 import Inscription from './pages/Inscription'
 import Connexion from './pages/Connexion'
 import Dashboard from './pages/Dashboard'
-import ReinitialisationMotDePasse from './pages/ReinitialisationMotDePasse'
 import RouteProtegee from './composants/RouteProtegee'
 import Admin from './pages/Admin'
 
@@ -48,9 +47,6 @@ export default function App() {
           } />
           <Route path="/inscription" element={
             connecte ? <Navigate to="/" /> : <Inscription />
-          } />
-          <Route path="/reinitialisation" element={
-            connecte ? <Navigate to="/" /> : <ReinitialisationMotDePasse />
           } />
           <Route path="/" element={
             connecte ? <Acceuil /> : <Navigate to="/connexion" />
