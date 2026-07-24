@@ -1,6 +1,5 @@
 import React from 'react'
 import { useEffect, useState } from 'react'
-import { auth } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 
 export default function RouteProtegee({ children: enfants }: { children: React.ReactNode }) {
@@ -8,18 +7,16 @@ export default function RouteProtegee({ children: enfants }: { children: React.R
   const navigate = useNavigate()
 
   useEffect(function() {
-    const desabonner = auth.onAuthStateChanged(function(user) {
-      if (!user) {
-        navigate('/connexion')  // pas connecté → on redirige
-      }
-      setVerification(false)    // vérification terminée
-    })
-    return desabonner
+    const token = localStorage.getItem('token')
+    if (!token) {
+      navigate('/connexion')
+    }
+    setVerification(false)
   }, [])
 
   if (verification) {
-    return <p>Chargement...</p>  // on attend la réponse de Firebase
+    return <p>Chargement...</p>
   }
 
-  return enfants  // connecté → on affiche la page
+  return enfants
 }

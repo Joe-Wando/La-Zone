@@ -1,13 +1,11 @@
 import { useState } from 'react'
-import { auth } from '../firebase'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { apiFetch } from '../api'
 import { useNavigate, Link } from 'react-router-dom'
 
 function Logo() {
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-4">
-        {/* Grille 3x3 */}
         <div className="grid grid-cols-3 gap-1">
           <div className="w-5 h-5 rounded-sm" style={{ backgroundColor: '#00A651' }}></div>
           <div className="w-5 h-5 rounded-sm" style={{ backgroundColor: '#00A651' }}></div>
@@ -20,7 +18,7 @@ function Logo() {
           <div className="w-5 h-5 rounded-sm" style={{ backgroundColor: '#E2001A' }}></div>
         </div>
 
-        {/* Texte + ligne tricolore */}
+
         <div>
           <p style={{ fontFamily: 'Arial', fontWeight: 900, fontSize: '36px', letterSpacing: '6px', color: '#ffffff', lineHeight: 1 }}>
             LAZONE
@@ -47,18 +45,25 @@ export default function Connexion() {
   const [chargement, setChargement] = useState(false)
   const navigate = useNavigate()
 
-  async function connecter() {
-    setErreur("")
-    setChargement(true)
-    try {
-      await signInWithEmailAndPassword(auth, email, motDePasse)
-      navigate('/')
-    } catch (e: any) {
-      setErreur("Email ou mot de passe incorrect.")
-    } finally {
-      setChargement(false)
-    }
+async function connecter() {
+  setErreur("")
+  setChargement(true)
+  try {
+    const resultat = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password: motDePasse })
+    })
+
+    localStorage.setItem('token', resultat.accessToken)
+    localStorage.setItem('user', JSON.stringify(resultat.user))
+    window.dispatchEvent(new Event('auth-change'))
+    navigate('/')
+  } catch (e: any) {
+    setErreur(e.message)
+  } finally {
+    setChargement(false)
   }
+}
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: '#0A0A0A' }}>
@@ -104,7 +109,7 @@ export default function Connexion() {
         <div className="w-full max-w-md rounded-2xl p-10 shadow-2xl"
           style={{ backgroundColor: '#111111', border: '1px solid #222222' }}>
 
-          {/* Logo mobile uniquement */}
+ 
           <div className="md:hidden mb-8">
             <Logo />
           </div>
@@ -133,14 +138,6 @@ export default function Connexion() {
               value={motDePasse} onChange={e => setMotDePasse(e.target.value)}
               className="w-full text-white px-4 py-3 rounded-xl focus:outline-none transition"
               style={{ backgroundColor: '#0A0A0A', border: '1px solid #222222' }} />
-          </div>
-
-          <div className="text-right mb-8">
-            <Link to="/reinitialisation"
-              className="text-sm hover:underline transition"
-              style={{ color: '#00A651' }}>
-              Mot de passe oublie ?
-            </Link>
           </div>
 
           <button onClick={connecter} disabled={chargement}

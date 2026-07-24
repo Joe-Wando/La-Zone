@@ -120,7 +120,7 @@ export default function Acceuil() {
 
                 <div className="absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded"
                   style={{ backgroundColor: "#FDEF00", color: "#0A0A0A" }}>
-                  {film.note.toFixed(1)}
+                  {film.note != null ? film.note.toFixed(1) : '—'}
                 </div>
 
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 rounded-lg transition duration-300 flex items-center justify-center">

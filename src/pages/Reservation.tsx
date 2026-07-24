@@ -1,16 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { useFilms } from "../hooks/useFilms"
-import { useState } from "react"
-import { db, auth } from "../firebase"
-import { collection, addDoc } from "firebase/firestore"
-import emailjs from "@emailjs/browser"
+import { useState, useEffect, useRef } from "react"
+import { apiFetch } from "../api"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
-import { useRef } from "react"
-
-function genererNumeroTicket() {
-  return "TK-" + Date.now().toString().slice(-6) + "-" + Math.floor(Math.random() * 1000)
-}
 
 function genererCodeConfirmation() {
   return Math.floor(1000 + Math.random() * 9000).toString()
@@ -22,16 +15,35 @@ export default function Reservation() {
   const { films, chargement } = useFilms()
   const ticketRef = useRef<HTMLDivElement>(null)
 
-  const film = films.find(f => f.id === Number(id))
+  const film = films.find(f => f.id === id)
+
+  const utilisateur = JSON.parse(localStorage.getItem('user') || '{}')
+
+  const [seances, setSeances] = useState<any[]>([])
+  const [seanceSelectionnee, setSeanceSelectionnee] = useState<string>("")
+  const [chargementSeances, setChargementSeances] = useState(true)
+  const [reservationConfirmee, setReservationConfirmee] = useState<any>(null)
+
+  useEffect(function() {
+    if (!id) return
+    async function chargerSeances() {
+      try {
+        const data = await apiFetch(`/showtimes?filmId=${id}`)
+        setSeances(data)
+        if (data.length > 0) setSeanceSelectionnee(data[0].id)
+      } catch (e) {
+        console.error("Erreur chargement séances", e)
+      } finally {
+        setChargementSeances(false)
+      }
+    }
+    chargerSeances()
+  }, [id])
 
   // Etapes : formulaire → paiement → confirmation → billet
   const [etape, setEtape] = useState<"formulaire" | "paiement" | "verification" | "billet">("formulaire")
 
-  const [nom, setNom] = useState("")
-  const [prenom, setPrenom] = useState("")
   const [nbPlaces, setNbPlaces] = useState(1)
-  const [horaire, setHoraire] = useState("14h00")
-  const [dateSeance, setDateSeance] = useState("")
   const [erreur, setErreur] = useState("")
 
   // Paiement Wave
@@ -40,20 +52,27 @@ export default function Reservation() {
   const [codeAttendu, setCodeAttendu] = useState("")
   const [codeSaisi, setCodeSaisi] = useState("")
 
-  // Billet
-  const [numeroTicket, setNumeroTicket] = useState("")
   const [telechargement, setTelechargement] = useState(false)
 
-  const montantTotal = nbPlaces * 3000
+  const seanceActive = seances.find(s => s.id === seanceSelectionnee)
+  const montantTotal = seanceActive ? seanceActive.prix * nbPlaces : 0
 
   const dateAujourdhui = new Date().toLocaleDateString("fr-FR", {
     weekday: "long", year: "numeric", month: "long", day: "numeric"
   })
 
+  function formaterDateHeure(dateHeure: string) {
+    const d = new Date(dateHeure)
+    return {
+      date: d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }),
+      heure: d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    }
+  }
+
   // ETAPE 1 — Valider le formulaire
   function validerFormulaire() {
-    if (!nom || !prenom || !dateSeance) {
-      setErreur("Veuillez remplir tous les champs.")
+    if (!seanceSelectionnee) {
+      setErreur("Veuillez sélectionner une séance.")
       return
     }
     setErreur("")
@@ -69,7 +88,6 @@ export default function Reservation() {
     setErreur("")
     setChargementPaiement(true)
 
-    // Simulation attente paiement Wave
     await new Promise(resolve => setTimeout(resolve, 2500))
 
     const code = genererCodeConfirmation()
@@ -88,40 +106,14 @@ export default function Reservation() {
     setChargementPaiement(true)
 
     try {
-      const numero = genererNumeroTicket()
-      setNumeroTicket(numero)
-
-      await addDoc(collection(db, "reservations"), {
-        filmId: id,
-        filmTitre: film?.titre,
-        filmAffiche: film?.affiche,
-        nom, prenom,
-        email: auth.currentUser?.email,
-        nbPlaces, horaire, dateSeance,
-        numeroTicket: numero,
-        montant: montantTotal,
-        telephone,
-        date: new Date().toLocaleDateString()
+      const reservation = await apiFetch('/reservations', {
+        method: 'POST',
+        body: JSON.stringify({ showtimeId: seanceSelectionnee, nbPlaces })
       })
-
-      await emailjs.send(
-        "service_4zcakd1", "template_mahkm92",
-        {
-          nom, prenom,
-          email: auth.currentUser?.email,
-          film_titre: film?.titre,
-          nb_places: nbPlaces,
-          horaire, date_seance: dateSeance,
-          numero_ticket: numero,
-          montant: montantTotal + " FCFA",
-          date: new Date().toLocaleDateString()
-        },
-        "LXcpyZm3pWLch4zM0"
-      )
-
+      setReservationConfirmee(reservation)
       setEtape("billet")
-    } catch (e) {
-      setErreur("Une erreur est survenue. Réessayez.")
+    } catch (e: any) {
+      setErreur(e.message)
     } finally {
       setChargementPaiement(false)
     }
@@ -139,6 +131,7 @@ export default function Reservation() {
       const largeur = pdf.internal.pageSize.getWidth()
       const hauteur = pdf.internal.pageSize.getHeight()
       pdf.addImage(imgData, "PNG", 0, 0, largeur, hauteur)
+      const numeroTicket = reservationConfirmee?.tickets?.[0]?.numeroTicket || 'reservation'
       pdf.save(`billet-${numeroTicket}.pdf`)
     } catch (e) {
       console.error("Erreur telechargement", e)
@@ -147,20 +140,23 @@ export default function Reservation() {
     }
   }
 
-  if (chargement) {
+  if (chargement || chargementSeances) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0A0A0A" }}>
-        <p style={{ color: "#888888" }}>Chargement du film...</p>
+        <p style={{ color: "#888888" }}>Chargement...</p>
       </div>
     )
   }
 
-  if (etape === "billet") {
+  if (etape === "billet" && reservationConfirmee) {
+    const { date, heure } = formaterDateHeure(reservationConfirmee.showtime?.dateHeure)
+    const premierTicket = reservationConfirmee.tickets?.[0]
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ backgroundColor: "#0A0A0A" }}>
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold text-white">Paiement confirme !</h2>
-          <p className="mt-2" style={{ color: "#888888" }}>Votre billet a ete envoye a {auth.currentUser?.email}</p>
+          <p className="mt-2" style={{ color: "#888888" }}>Votre billet a ete envoye a {utilisateur.email}</p>
         </div>
 
         {/* Billet */}
@@ -185,23 +181,23 @@ export default function Reservation() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#888888" }}>Titulaire</p>
-                  <p className="text-white font-semibold text-sm">{prenom} {nom}</p>
+                  <p className="text-white font-semibold text-sm">{utilisateur.prenom} {utilisateur.nom}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#888888" }}>Places</p>
-                  <p className="text-white font-semibold text-sm">{nbPlaces} place{nbPlaces > 1 ? "s" : ""}</p>
+                  <p className="text-white font-semibold text-sm">{reservationConfirmee.nbPlaces} place{reservationConfirmee.nbPlaces > 1 ? "s" : ""}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#888888" }}>Date</p>
-                  <p className="text-white font-semibold text-sm">{dateSeance}</p>
+                  <p className="text-white font-semibold text-sm">{date}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#888888" }}>Horaire</p>
-                  <p className="text-white font-semibold text-sm">{horaire}</p>
+                  <p className="text-white font-semibold text-sm">{heure}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#888888" }}>Montant</p>
-                  <p className="font-semibold text-sm" style={{ color: "#00A651" }}>{montantTotal} FCFA</p>
+                  <p className="font-semibold text-sm" style={{ color: "#00A651" }}>{reservationConfirmee.prixTotal?.toLocaleString()} FCFA</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#888888" }}>Paiement</p>
@@ -211,7 +207,12 @@ export default function Reservation() {
             </div>
             <div className="mt-4">
               <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#888888" }}>N° Billet</p>
-              <p className="font-mono font-bold" style={{ color: "#00A651" }}>{numeroTicket}</p>
+              <p className="font-mono font-bold" style={{ color: "#00A651" }}>{premierTicket?.numeroTicket}</p>
+              {reservationConfirmee.tickets?.length > 1 && (
+                <p className="text-xs mt-1" style={{ color: "#888888" }}>
+                  +{reservationConfirmee.tickets.length - 1} autre{reservationConfirmee.tickets.length > 2 ? "s" : ""} billet{reservationConfirmee.tickets.length > 2 ? "s" : ""}
+                </p>
+              )}
               <div className="flex gap-px mt-3">
                 {Array.from({ length: 40 }).map(function(_, i) {
                   return <div key={i} style={{ width: i % 3 === 0 ? "3px" : "2px", height: "30px", backgroundColor: "#ffffff", opacity: i % 2 === 0 ? 0.9 : 0.3 }}></div>
@@ -290,74 +291,63 @@ export default function Reservation() {
             </div>
           )}
 
-         
           {etape === "formulaire" && (
             <div>
-              <h2 className="text-lg font-bold text-white mb-4">Vos informations</h2>
+              <h2 className="text-lg font-bold text-white mb-4">Choisissez votre séance</h2>
 
-              <div className="flex gap-3 mb-3">
-                <div className="flex-1">
-                  <label className="text-xs block mb-1" style={{ color: "#888888" }}>Prenom</label>
-                  <input type="text" placeholder="Moussa" value={prenom} onChange={e => setPrenom(e.target.value)}
-                    className="w-full text-white px-3 py-2.5 rounded-xl text-sm focus:outline-none"
-                    style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222" }} />
+              {seances.length === 0 ? (
+                <div className="text-center py-6">
+                  <p style={{ color: "#888888" }}>Aucune séance disponible pour ce film.</p>
                 </div>
-                <div className="flex-1">
-                  <label className="text-xs block mb-1" style={{ color: "#888888" }}>Nom</label>
-                  <input type="text" placeholder="Diallo" value={nom} onChange={e => setNom(e.target.value)}
-                    className="w-full text-white px-3 py-2.5 rounded-xl text-sm focus:outline-none"
-                    style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222" }} />
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <label className="text-xs block mb-1" style={{ color: "#888888" }}>Séance</label>
+                    <select value={seanceSelectionnee} onChange={e => setSeanceSelectionnee(e.target.value)}
+                      className="w-full text-white px-3 py-2.5 rounded-xl text-sm focus:outline-none"
+                      style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222" }}>
+                      {seances.map(function(s) {
+                        const { date, heure } = formaterDateHeure(s.dateHeure)
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {date} à {heure}{s.salle?.nom ? ` — ${s.salle.nom}` : ''} — {s.prix?.toLocaleString()} FCFA/place
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
 
-              <div className="mb-3">
-                <label className="text-xs block mb-1" style={{ color: "#888888" }}>Date de la seance</label>
-                <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
-                  className="w-full text-white px-3 py-2.5 rounded-xl text-sm focus:outline-none"
-                  style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222", colorScheme: "dark" }} />
-              </div>
+                  <div className="mb-6">
+                    <label className="text-xs block mb-1" style={{ color: "#888888" }}>Nombre de places</label>
+                    <select value={nbPlaces} onChange={e => setNbPlaces(Number(e.target.value))}
+                      className="w-full text-white px-3 py-2.5 rounded-xl text-sm focus:outline-none"
+                      style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222" }}>
+                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                        <option key={n} value={n}>{n} place{n > 1 ? "s" : ""}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div className="flex gap-3 mb-6">
-                <div className="flex-1">
-                  <label className="text-xs block mb-1" style={{ color: "#888888" }}>Horaire</label>
-                  <select value={horaire} onChange={e => setHoraire(e.target.value)}
-                    className="w-full text-white px-3 py-2.5 rounded-xl text-sm focus:outline-none"
+                  {/* Recapitulatif montant */}
+                  <div className="rounded-xl p-4 mb-6 flex items-center justify-between"
                     style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222" }}>
-                    <option value="14h00">14h00</option>
-                    <option value="19h00">19h00</option>
-                    <option value="22h00">22h00</option>
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs block mb-1" style={{ color: "#888888" }}>Nombre de places</label>
-                  <select value={nbPlaces} onChange={e => setNbPlaces(Number(e.target.value))}
-                    className="w-full text-white px-3 py-2.5 rounded-xl text-sm focus:outline-none"
-                    style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222" }}>
-                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                      <option key={n} value={n}>{n} place{n > 1 ? "s" : ""}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                    <div>
+                      <p className="text-xs" style={{ color: "#888888" }}>{nbPlaces} place{nbPlaces > 1 ? "s" : ""} x {seanceActive?.prix?.toLocaleString() || '—'} FCFA</p>
+                      <p className="text-white font-bold text-lg">{montantTotal.toLocaleString()} FCFA</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs" style={{ color: "#888888" }}>Paiement via</p>
+                      <p className="font-bold" style={{ color: "#00A651" }}>Wave</p>
+                    </div>
+                  </div>
 
-              {/* Recapitulatif montant */}
-              <div className="rounded-xl p-4 mb-6 flex items-center justify-between"
-                style={{ backgroundColor: "#0A0A0A", border: "1px solid #222222" }}>
-                <div>
-                  <p className="text-xs" style={{ color: "#888888" }}>{nbPlaces} place{nbPlaces > 1 ? "s" : ""} x 3 000 FCFA</p>
-                  <p className="text-white font-bold text-lg">{montantTotal.toLocaleString()} FCFA</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs" style={{ color: "#888888" }}>Paiement via</p>
-                  <p className="font-bold" style={{ color: "#00A651" }}>Wave</p>
-                </div>
-              </div>
-
-              <button onClick={validerFormulaire}
-                className="w-full py-3 rounded-xl font-bold text-lg transition"
-                style={{ backgroundColor: "#00A651", color: "#ffffff" }}>
-                Continuer vers le paiement
-              </button>
+                  <button onClick={validerFormulaire}
+                    className="w-full py-3 rounded-xl font-bold text-lg transition"
+                    style={{ backgroundColor: "#00A651", color: "#ffffff" }}>
+                    Continuer vers le paiement
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -412,7 +402,7 @@ export default function Reservation() {
             </div>
           )}
 
-          {/* ===== ETAPE 3 — CODE DE CONFIRMATION ===== */}
+          {/* ETAPE 3 — CODE DE CONFIRMATION */}
           {etape === "verification" && (
             <div>
               <div className="text-center mb-6">

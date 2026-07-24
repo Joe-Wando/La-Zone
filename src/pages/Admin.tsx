@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react'
-import { auth, db } from '../firebase'
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore'
+import { apiFetch } from '../api'
 import { useNavigate } from 'react-router-dom'
-import { signOut } from 'firebase/auth'
-import emailjs from "@emailjs/browser"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid
 } from 'recharts'
 
-const ADMINS = ["jonathan6wando@gmail.com", "ba2002coumba@gmail.com", "nzinounoup@gmail.com"]
-
 export default function Admin() {
-  const [utilisateur, setUtilisateur] = useState<any>(null)
+  const utilisateur = JSON.parse(localStorage.getItem('user') || '{}')
   const [reservations, setReservations] = useState<any[]>([])
   const [chargement, setChargement] = useState(true)
   const [pageCourante, setPageCourante] = useState('overview')
@@ -22,90 +17,78 @@ export default function Admin() {
   const [sidebarOuverte, setSidebarOuverte] = useState(false)
   const navigate = useNavigate()
 
-useEffect(function() {
-  const desabonner = auth.onAuthStateChanged(function(user) {
-    if (!user) { 
-      navigate('/connexion')
-      return 
-    }
-    if (!ADMINS.includes(user.email || "")) { 
-      navigate('/dashboard')
-      return 
-    }
-    setUtilisateur(user)
-  })
-  
-  return desabonner
-}, [])
-
-
   useEffect(function() {
-    if (!utilisateur) return
+    if (utilisateur.role !== 'admin') {
+      navigate('/dashboard')
+      return
+    }
     async function chargerToutesReservations() {
-      const resultats = await getDocs(collection(db, 'reservations'))
-      const liste = resultats.docs.map(function(doc) {
-        return { id: doc.id, ...doc.data() }
-      })
-      setReservations(liste)
-      setChargement(false)
+      try {
+        const data = await apiFetch('/reservations/toutes')
+        setReservations(data)
+      } catch (e) {
+        console.error("Erreur chargement réservations", e)
+      } finally {
+        setChargement(false)
+      }
     }
     chargerToutesReservations()
-  }, [utilisateur])
+  }, [])
 
-  async function deconnecter() {
-    await signOut(auth)
-    navigate('/')
+  function deconnecter() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    window.dispatchEvent(new Event('auth-change'))
+    navigate('/connexion')
   }
 
-  async function supprimerReservation(reservation: any) {
+  async function annulerReservation(reservation: any) {
     setSuppressionChargement(true)
     try {
-      await deleteDoc(doc(db, 'reservations', reservation.id))
-      await emailjs.send(
-        "service_4zcakd1",
-        "template_hvr9y44",
-        {
-          nom: reservation.nom,
-          prenom: reservation.prenom,
-          email: reservation.email,
-          film_titre: reservation.filmTitre,
-          date_seance: reservation.dateSeance || reservation.date,
-          numero_ticket: reservation.numeroTicket || '—',
-          message: "Votre reservation a ete annulee par notre service client."
-        },
-        "LXcpyZm3pWLch4zM0"
-      )
+      await apiFetch(`/reservations/${reservation.id}/annuler`, { method: 'PATCH' })
       setReservations(function(prev) {
         return prev.filter(r => r.id !== reservation.id)
       })
       setSuppressionId(null)
     } catch (e) {
-      console.error("Erreur suppression", e)
+      console.error("Erreur annulation", e)
     } finally {
       setSuppressionChargement(false)
     }
   }
 
+  function formaterDate(dateHeure: string) {
+    if (!dateHeure) return '—'
+    return new Date(dateHeure).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
+  function formaterHeure(dateHeure: string) {
+    if (!dateHeure) return '—'
+    return new Date(dateHeure).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  }
+
   const reservationsFiltrees = reservations.filter(function(r) {
+    const q = recherche.toLowerCase()
     return (
-      r.filmTitre?.toLowerCase().includes(recherche.toLowerCase()) ||
-      r.email?.toLowerCase().includes(recherche.toLowerCase()) ||
-      r.nom?.toLowerCase().includes(recherche.toLowerCase()) ||
-      r.prenom?.toLowerCase().includes(recherche.toLowerCase())
+      r.showtime?.film?.titre?.toLowerCase().includes(q) ||
+      r.utilisateur?.email?.toLowerCase().includes(q) ||
+      r.utilisateur?.nom?.toLowerCase().includes(q) ||
+      r.utilisateur?.prenom?.toLowerCase().includes(q)
     )
   })
 
   const totalPlaces = reservations.reduce((acc, r) => acc + (r.nbPlaces || 1), 0)
 
   const donneesHoraires = [
-    { horaire: '14h00', reservations: reservations.filter(r => r.horaire === '14h00').length },
-    { horaire: '19h00', reservations: reservations.filter(r => r.horaire === '19h00').length },
-    { horaire: '22h00', reservations: reservations.filter(r => r.horaire === '22h00').length },
+    { horaire: '14h00', reservations: reservations.filter(r => new Date(r.showtime?.dateHeure).getHours() === 14).length },
+    { horaire: '19h00', reservations: reservations.filter(r => new Date(r.showtime?.dateHeure).getHours() === 19).length },
+    { horaire: '22h00', reservations: reservations.filter(r => new Date(r.showtime?.dateHeure).getHours() === 22).length },
   ]
 
   const filmsCount: Record<string, number> = {}
   reservations.forEach(function(r) {
-    if (r.filmTitre) filmsCount[r.filmTitre] = (filmsCount[r.filmTitre] || 0) + 1
+    const titre = r.showtime?.film?.titre
+    if (titre) filmsCount[titre] = (filmsCount[titre] || 0) + 1
   })
   const topFilms = Object.entries(filmsCount)
     .sort((a, b) => b[1] - a[1])
@@ -114,7 +97,7 @@ useEffect(function() {
 
   const parDate: Record<string, number> = {}
   reservations.forEach(function(r) {
-    const date = r.dateSeance || r.date || 'Inconnue'
+    const date = r.showtime?.dateHeure ? formaterDate(r.showtime.dateHeure) : 'Inconnue'
     parDate[date] = (parDate[date] || 0) + 1
   })
   const donneesDate = Object.entries(parDate)
@@ -163,7 +146,7 @@ useEffect(function() {
         <div className="mt-auto px-4">
           <div className="rounded-xl p-4 mb-4"
             style={{ backgroundColor: '#00A65110', border: '1px solid #00A65120' }}>
-            <p className="text-xs font-semibold text-white truncate">{utilisateur?.email}</p>
+            <p className="text-xs font-semibold text-white truncate">{utilisateur.email}</p>
             <p className="text-xs mt-1" style={{ color: '#00A651' }}>Administrateur</p>
           </div>
           <button onClick={deconnecter}
@@ -226,8 +209,8 @@ useEffect(function() {
               {[
                 { label: 'Total reservations', value: reservations.length, color: '#00A651' },
                 { label: 'Places vendues', value: totalPlaces, color: '#FDEF00' },
-                { label: 'Clients uniques', value: [...new Set(reservations.map(r => r.email))].length, color: '#00A651' },
-                { label: 'Films reserves', value: [...new Set(reservations.map(r => r.filmTitre))].length, color: '#FDEF00' },
+                { label: 'Clients uniques', value: [...new Set(reservations.map(r => r.utilisateur?.email))].length, color: '#00A651' },
+                { label: 'Films reserves', value: [...new Set(reservations.map(r => r.showtime?.film?.titre))].length, color: '#FDEF00' },
               ].map(function(carte) {
                 return (
                   <div key={carte.label} className="rounded-2xl p-4 md:p-5"
@@ -323,14 +306,14 @@ useEffect(function() {
                   return (
                     <div key={r.id} className="flex items-center justify-between py-4">
                       <div>
-                        <p className="font-semibold text-white text-sm">{r.filmTitre}</p>
+                        <p className="font-semibold text-white text-sm">{r.showtime?.film?.titre}</p>
                         <p className="text-xs" style={{ color: '#888888' }}>
-                          {r.prenom} {r.nom} — {r.email}
+                          {r.utilisateur?.prenom} {r.utilisateur?.nom} — {r.utilisateur?.email}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-mono" style={{ color: '#FDEF00' }}>
-                          {r.numeroTicket || '—'}
+                          {r.tickets?.[0]?.numeroTicket || '—'}
                         </p>
                         <p className="text-xs mt-1" style={{ color: '#888888' }}>
                           {r.nbPlaces || 1} place{(r.nbPlaces || 1) > 1 ? 's' : ''}
@@ -374,19 +357,19 @@ useEffect(function() {
                     {reservationsFiltrees.map(function(r) {
                       return (
                         <tr key={r.id} style={{ borderBottom: '1px solid #222222' }}>
-                          <td className="py-4 px-4 text-white font-semibold whitespace-nowrap">{r.prenom} {r.nom}</td>
-                          <td className="py-4 px-4 whitespace-nowrap" style={{ color: '#888888' }}>{r.email}</td>
-                          <td className="py-4 px-4 text-white whitespace-nowrap">{r.filmTitre}</td>
-                          <td className="py-4 px-4 whitespace-nowrap" style={{ color: '#888888' }}>{r.dateSeance || r.date}</td>
-                          <td className="py-4 px-4 whitespace-nowrap" style={{ color: '#888888' }}>{r.horaire || '—'}</td>
+                          <td className="py-4 px-4 text-white font-semibold whitespace-nowrap">{r.utilisateur?.prenom} {r.utilisateur?.nom}</td>
+                          <td className="py-4 px-4 whitespace-nowrap" style={{ color: '#888888' }}>{r.utilisateur?.email}</td>
+                          <td className="py-4 px-4 text-white whitespace-nowrap">{r.showtime?.film?.titre}</td>
+                          <td className="py-4 px-4 whitespace-nowrap" style={{ color: '#888888' }}>{formaterDate(r.showtime?.dateHeure)}</td>
+                          <td className="py-4 px-4 whitespace-nowrap" style={{ color: '#888888' }}>{formaterHeure(r.showtime?.dateHeure)}</td>
                           <td className="py-4 px-4 whitespace-nowrap" style={{ color: '#00A651' }}>{r.nbPlaces || 1}</td>
-                          <td className="py-4 px-4 font-mono text-xs whitespace-nowrap" style={{ color: '#FDEF00' }}>{r.numeroTicket || '—'}</td>
+                          <td className="py-4 px-4 font-mono text-xs whitespace-nowrap" style={{ color: '#FDEF00' }}>{r.tickets?.[0]?.numeroTicket || '—'}</td>
                           <td className="py-4 px-4 whitespace-nowrap">
                             {suppressionId === r.id ? (
                               <div className="flex gap-2 items-center">
                                 <p className="text-xs" style={{ color: '#888888' }}>Confirmer ?</p>
                                 <button
-                                  onClick={() => supprimerReservation(r)}
+                                  onClick={() => annulerReservation(r)}
                                   disabled={suppressionChargement}
                                   className="text-xs px-3 py-1 rounded-lg font-semibold disabled:opacity-50"
                                   style={{ backgroundColor: '#E2001A20', color: '#E2001A', border: '1px solid #E2001A30' }}>
@@ -423,14 +406,14 @@ useEffect(function() {
             style={{ backgroundColor: '#111111', border: '1px solid #222222' }}>
             <h2 className="text-xl font-bold text-white mb-6">Utilisateurs actifs</h2>
             <div className="divide-y" style={{ borderColor: '#222222' }}>
-              {[...new Set(reservations.map(r => r.email))].map(function(email) {
-                const resUser = reservations.filter(r => r.email === email)
+              {[...new Set(reservations.map(r => r.utilisateur?.email))].map(function(email) {
+                const resUser = reservations.filter(r => r.utilisateur?.email === email)
                 const derniere = resUser[resUser.length - 1]
                 return (
                   <div key={email as string} className="flex items-center justify-between py-4">
                     <div>
                       <p className="font-semibold text-white text-sm">
-                        {derniere.prenom} {derniere.nom}
+                        {derniere.utilisateur?.prenom} {derniere.utilisateur?.nom}
                       </p>
                       <p className="text-xs mt-1" style={{ color: '#888888' }}>{email as string}</p>
                     </div>
