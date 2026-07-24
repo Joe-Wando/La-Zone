@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react"
+import { apiFetch } from "../api"
 
 export interface Film {
-  id: number
+  id: string
+  tmdbId: number
   titre: string
   affiche: string
   note: number
   synopsis: string
+  duree?: number
+  genre?: string
 }
 
 export function useFilms() {
@@ -13,32 +17,26 @@ export function useFilms() {
   const [chargement, setChargement] = useState(true)
 
   useEffect(function() {
-async function chargerFilms() {
+    async function chargerFilms() {
       try {
-        // On charge 5 pages en parallele
-        const promesses = [1, 2, 3, 4, 5].map(function(page) {
-          return fetch(
-            `https://api.themoviedb.org/3/movie/popular?api_key=${import.meta.env.VITE_TMDB_API_KEY}&language=fr-FR&page=${page}`
-          ).then(r => r.json())
-        })
+        const donnees = await apiFetch('/films')
 
-        const resultats = await Promise.all(promesses)
-
-        const liste: Film[] = resultats.flatMap(function(data) {
-          return data.results.map(function(film: any) {
-            return {
-              id: film.id,
-              titre: film.title,
-              affiche: "https://image.tmdb.org/t/p/w500" + film.poster_path,
-              note: film.vote_average,
-              synopsis: film.overview,
-            }
-          })
+        const liste: Film[] = donnees.map(function(film: any) {
+          return {
+            id: film.id,
+            tmdbId: film.tmdbId,
+            titre: film.titre,
+            affiche: film.affiche,
+            note: film.note,
+            synopsis: film.description,
+            duree: film.duree,
+            genre: film.genre,
+          }
         })
 
         setFilms(liste)
       } catch (e) {
-        console.error("Erreur TMDB", e)
+        console.error("Erreur lors du chargement des films", e)
       } finally {
         setChargement(false)
       }

@@ -1,24 +1,42 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { auth } from '../firebase'
-import { signOut } from 'firebase/auth'
 import { LogoPetit } from './Logo'
 
 export default function Navbar() {
   const [connecte, setConnecte] = useState(false)
+  const [estAdmin, setEstAdmin] = useState(false)
   const [menuOuvert, setMenuOuvert] = useState(false)
   const navigate = useNavigate()
 
   useEffect(function() {
-    const desabonner = auth.onAuthStateChanged(function(user) {
-      setConnecte(!!user)
-    })
-    return desabonner
+    function lireSession() {
+      const token = localStorage.getItem('token')
+      setConnecte(!!token)
+
+      const brut = localStorage.getItem('user')
+      if (brut) {
+        try {
+          setEstAdmin(JSON.parse(brut).role === 'admin')
+        } catch {
+          setEstAdmin(false)
+        }
+      } else {
+        setEstAdmin(false)
+      }
+    }
+
+    lireSession()
+    window.addEventListener('auth-change', lireSession)
+    return function() {
+      window.removeEventListener('auth-change', lireSession)
+    }
   }, [])
 
-  async function deconnecter() {
-    await signOut(auth)
-    navigate('/')
+  function deconnecter() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    window.dispatchEvent(new Event('auth-change'))
+    navigate('/connexion')
     setMenuOuvert(false)
   }
 
@@ -35,6 +53,9 @@ export default function Navbar() {
         {connecte ? (
           <>
             <Link to="/dashboard" className="text-sm transition hover:text-white" style={{ color: '#888888' }}>Mon espace</Link>
+            {estAdmin && (
+              <Link to="/admin" className="text-sm transition hover:text-white" style={{ color: '#FDEF00' }}>Admin</Link>
+            )}
             <button onClick={deconnecter}
               className="text-sm px-5 py-2 rounded font-semibold transition"
               style={{ backgroundColor: '#00A651', color: '#0A0A0A' }}>
@@ -83,6 +104,12 @@ export default function Navbar() {
                 className="text-sm py-2 transition hover:text-white" style={{ color: '#888888' }}>
                 Mon espace
               </Link>
+              {estAdmin && (
+                <Link to="/admin" onClick={() => setMenuOuvert(false)}
+                  className="text-sm py-2 transition hover:text-white" style={{ color: '#FDEF00' }}>
+                  Admin
+                </Link>
+              )}
               <button onClick={deconnecter}
                 className="text-sm px-5 py-3 rounded font-semibold transition text-left"
                 style={{ backgroundColor: '#00A651', color: '#0A0A0A' }}>

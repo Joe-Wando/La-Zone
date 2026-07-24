@@ -71,7 +71,7 @@ export default function Films() {
 
                   <span className="absolute top-3 right-3 text-xs px-2 py-1 rounded-full font-bold"
                     style={{ backgroundColor: 'rgba(0,0,0,0.7)', color: '#FDEF00' }}>
-                    {film.note.toFixed(1)}
+                    {film.note != null ? film.note.toFixed(1) : "—"}
                   </span>
 
                   <div className="absolute bottom-0 left-0 right-0 p-4"
