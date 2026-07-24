@@ -228,7 +228,7 @@ export default function Reservation() {
             style={{ backgroundColor: "#00A651", color: "#ffffff" }}>
             {telechargement ? "Generation..." : "Telecharger mon billet"}
           </button>
-          <button onClick={() => naviguer("/Films")}
+          <button onClick={() => naviguer("/films")}
             className="px-8 py-3 rounded-full font-semibold transition"
             style={{ border: "1px solid #222222", color: "#888888" }}>
             Voir d'autres films
