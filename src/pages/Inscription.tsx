@@ -24,6 +24,7 @@ async function inscrire() {
 
     localStorage.setItem('token', resultat.accessToken)
     localStorage.setItem('user', JSON.stringify(resultat.user))
+    window.dispatchEvent(new Event('auth-change'))
 
     setSucces(true)
     setTimeout(function() {
