@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { auth } from '../firebase'
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth'
+import { apiFetch } from '../api'
 import { useNavigate, Link } from 'react-router-dom'
 import { LogoGrand } from '../composants/Logo'
 
@@ -14,31 +13,29 @@ export default function Inscription() {
   const [succes, setSucces] = useState(false)
   const navigate = useNavigate()
 
-  async function inscrire() {
-    setErreur("")
-    setChargement(true)
-    try {
-      const resultat = await createUserWithEmailAndPassword(auth, email, motDePasse)
-      await updateProfile(resultat.user, {
-        displayName: prenom + " " + nom
-      })
-      await sendEmailVerification(resultat.user)
-      setSucces(true)
-      setTimeout(function() {
-        navigate('/')
-      }, 3000)
-    } catch (e: any) {
-      if (e.code === "auth/email-already-in-use") {
-        setErreur("Cet email est deja utilise.")
-      } else if (e.code === "auth/weak-password") {
-        setErreur("Le mot de passe doit faire au moins 6 caracteres.")
-      } else {
-        setErreur("Une erreur est survenue. Reessayez.")
-      }
-    } finally {
-      setChargement(false)
-    }
+async function inscrire() {
+  setErreur("")
+  setChargement(true)
+  try {
+    const resultat = await apiFetch('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password: motDePasse, nom, prenom })
+    })
+
+    localStorage.setItem('token', resultat.accessToken)
+    localStorage.setItem('user', JSON.stringify(resultat.user))
+    window.dispatchEvent(new Event('auth-change'))
+
+    setSucces(true)
+    setTimeout(function() {
+      navigate('/')
+    }, 3000)
+  } catch (e: any) {
+    setErreur(e.message)
+  } finally {
+    setChargement(false)
   }
+}
 
   if (succes) {
     return (
@@ -59,8 +56,7 @@ export default function Inscription() {
             Bienvenue {prenom} {nom} sur LAZONE.
           </p>
           <p className="text-sm mb-6" style={{ color: '#888888' }}>
-            Un email de verification a ete envoye a{" "}
-            <span style={{ color: '#00A651' }}>{email}</span>.
+             Votre compte <span style={{ color: '#00A651' }}>{email}</span> est prêt.
           </p>
 
           <div className="rounded-xl px-4 py-3 mb-6"

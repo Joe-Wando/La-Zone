@@ -1,65 +1,61 @@
 import { useEffect, useState } from 'react'
-import { auth, db } from '../firebase'
-import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
+import { apiFetch } from '../api'
 import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
-  const [utilisateur, setUtilisateur] = useState<any>(null)
+  const utilisateur = JSON.parse(localStorage.getItem('user') || '{}')
   const [reservations, setReservations] = useState<any[]>([])
   const [chargement, setChargement] = useState(true)
   const [suppressionId, setSuppressionId] = useState<string | null>(null)
 
   useEffect(function() {
-    const desabonner = auth.onAuthStateChanged(function(user) {
-      setUtilisateur(user)
-    })
-    return desabonner
-  }, [])
-
-  useEffect(function() {
-    if (!utilisateur) return
     async function chargerReservations() {
-      const requete = query(
-        collection(db, 'reservations'),
-        where('email', '==', utilisateur?.email)
-      )
-      const resultats = await getDocs(requete)
-      const liste = resultats.docs.map(function(doc) {
-        return { id: doc.id, ...doc.data() }
-      })
-      setReservations(liste)
-      setChargement(false)
+      try {
+        const data = await apiFetch('/reservations')
+        setReservations(data)
+      } catch (e) {
+        console.error("Erreur chargement réservations", e)
+      } finally {
+        setChargement(false)
+      }
     }
     chargerReservations()
-  }, [utilisateur])
+  }, [])
 
-  async function supprimerReservation(id: string) {
+  async function annulerReservation(id: string) {
     try {
-      await deleteDoc(doc(db, 'reservations', id))
+      await apiFetch(`/reservations/${id}/annuler`, { method: 'PATCH' })
       setReservations(function(prev) {
         return prev.filter(r => r.id !== id)
       })
       setSuppressionId(null)
     } catch (e) {
-      console.error("Erreur suppression", e)
+      console.error("Erreur annulation", e)
     }
+  }
+
+  function formaterDateHeure(dateHeure: string) {
+    if (!dateHeure) return '—'
+    const d = new Date(dateHeure)
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+      + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   }
 
   return (
     <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: '#0A0A0A' }}>
 
-      {/* En-tete */}
+
       <div className="mb-8">
         <p className="text-sm mb-1" style={{ color: '#888888' }}>Tableau de bord</p>
         <h1 className="text-2xl md:text-4xl font-bold text-white">
-          Bonjour {utilisateur?.displayName || utilisateur?.email}
+          Bonjour {utilisateur.prenom || utilisateur.nom || utilisateur.email}
         </h1>
         <p className="mt-2 text-sm" style={{ color: '#888888' }}>
           Voici un resume de votre activite sur LAZONE
         </p>
       </div>
 
-      {/* Cartes stats */}
+    
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="rounded-2xl p-5 md:p-6"
           style={{ background: 'linear-gradient(135deg, #00A651, #007A3D)' }}>
@@ -73,7 +69,7 @@ export default function Dashboard() {
           <p className="text-black/70 text-sm mb-1">Derniere reservation</p>
           <p className="text-xl md:text-2xl font-bold text-black mt-2">
             {reservations.length > 0
-              ? reservations[reservations.length - 1].date
+              ? formaterDateHeure(reservations[reservations.length - 1].showtime?.dateHeure)
               : "—"}
           </p>
           <p className="text-black/60 text-xs mt-3">Date de votre derniere seance</p>
@@ -87,7 +83,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Liste reservations */}
+  
       <div className="rounded-2xl p-4 md:p-6"
         style={{ backgroundColor: '#111111', border: '1px solid #222222' }}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -118,24 +114,23 @@ export default function Dashboard() {
 
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      {reservation.filmAffiche && (
-                        <img src={reservation.filmAffiche} alt={reservation.filmTitre}
+                      {reservation.showtime?.film?.affiche && (
+                        <img src={reservation.showtime.film.affiche} alt={reservation.showtime.film.titre}
                           className="w-10 h-14 md:w-12 md:h-16 object-cover rounded-lg flex-shrink-0" />
                       )}
                       <div>
-                        <p className="font-semibold text-white text-sm">{reservation.filmTitre}</p>
+                        <p className="font-semibold text-white text-sm">{reservation.showtime?.film?.titre}</p>
                         <p className="text-xs mt-1" style={{ color: '#888888' }}>
-                          {reservation.dateSeance || reservation.date}
-                          {reservation.horaire && ` — ${reservation.horaire}`}
+                          {formaterDateHeure(reservation.showtime?.dateHeure)}
                         </p>
                         {reservation.nbPlaces && (
                           <p className="text-xs mt-0.5" style={{ color: '#888888' }}>
                             {reservation.nbPlaces} place{reservation.nbPlaces > 1 ? 's' : ''}
                           </p>
                         )}
-                        {reservation.numeroTicket && (
+                        {reservation.tickets?.[0]?.numeroTicket && (
                           <p className="text-xs font-mono mt-1" style={{ color: '#FDEF00' }}>
-                            {reservation.numeroTicket}
+                            {reservation.tickets[0].numeroTicket}
                           </p>
                         )}
                       </div>
@@ -143,29 +138,33 @@ export default function Dashboard() {
 
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
                       <span className="text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap"
-                        style={{ backgroundColor: '#00A65115', color: '#00A651', border: '1px solid #00A65130' }}>
-                        Confirme
+                        style={reservation.statut === 'annulee'
+                          ? { backgroundColor: '#E2001A15', color: '#E2001A', border: '1px solid #E2001A30' }
+                          : { backgroundColor: '#00A65115', color: '#00A651', border: '1px solid #00A65130' }}>
+                        {reservation.statut === 'annulee' ? 'Annulee' : 'Confirme'}
                       </span>
 
-                      {suppressionId === reservation.id ? (
-                        <div className="flex gap-2 items-center">
-                          <button onClick={() => supprimerReservation(reservation.id)}
-                            className="text-xs px-3 py-1 rounded-lg font-semibold"
-                            style={{ backgroundColor: '#E2001A20', color: '#E2001A', border: '1px solid #E2001A30' }}>
-                            Oui
+                      {reservation.statut !== 'annulee' && (
+                        suppressionId === reservation.id ? (
+                          <div className="flex gap-2 items-center">
+                            <button onClick={() => annulerReservation(reservation.id)}
+                              className="text-xs px-3 py-1 rounded-lg font-semibold"
+                              style={{ backgroundColor: '#E2001A20', color: '#E2001A', border: '1px solid #E2001A30' }}>
+                              Oui
+                            </button>
+                            <button onClick={() => setSuppressionId(null)}
+                              className="text-xs px-3 py-1 rounded-lg font-semibold"
+                              style={{ backgroundColor: '#222222', color: '#888888' }}>
+                              Non
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setSuppressionId(reservation.id)}
+                            className="text-xs px-3 py-1 rounded-lg transition whitespace-nowrap"
+                            style={{ backgroundColor: '#E2001A15', color: '#E2001A', border: '1px solid #E2001A25' }}>
+                            Annuler
                           </button>
-                          <button onClick={() => setSuppressionId(null)}
-                            className="text-xs px-3 py-1 rounded-lg font-semibold"
-                            style={{ backgroundColor: '#222222', color: '#888888' }}>
-                            Non
-                          </button>
-                        </div>
-                      ) : (
-                        <button onClick={() => setSuppressionId(reservation.id)}
-                          className="text-xs px-3 py-1 rounded-lg transition whitespace-nowrap"
-                          style={{ backgroundColor: '#E2001A15', color: '#E2001A', border: '1px solid #E2001A25' }}>
-                          Supprimer
-                        </button>
+                        )
                       )}
                     </div>
                   </div>
