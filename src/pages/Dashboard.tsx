@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { auth, db } from '../firebase'
+import { db } from '../firebase'
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
 import { Link } from 'react-router-dom'
 
@@ -10,10 +10,10 @@ export default function Dashboard() {
   const [suppressionId, setSuppressionId] = useState<string | null>(null)
 
   useEffect(function() {
-    const desabonner = auth.onAuthStateChanged(function(user) {
-      setUtilisateur(user)
-    })
-    return desabonner
+    const brut = localStorage.getItem('user')
+    if (brut) {
+      setUtilisateur(JSON.parse(brut))
+    }
   }, [])
 
   useEffect(function() {
@@ -52,7 +52,7 @@ export default function Dashboard() {
       <div className="mb-8">
         <p className="text-sm mb-1" style={{ color: '#888888' }}>Tableau de bord</p>
         <h1 className="text-2xl md:text-4xl font-bold text-white">
-          Bonjour {utilisateur?.displayName || utilisateur?.email}
+          Bonjour {utilisateur?.name || utilisateur?.email}
         </h1>
         <p className="mt-2 text-sm" style={{ color: '#888888' }}>
           Voici un resume de votre activite sur LAZONE

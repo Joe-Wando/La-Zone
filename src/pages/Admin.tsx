@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react'
-import { auth, db } from '../firebase'
+import { db } from '../firebase'
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
-import { signOut } from 'firebase/auth'
 import emailjs from "@emailjs/browser"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid
 } from 'recharts'
-
-const ADMINS = ["jonathan6wando@gmail.com", "ba2002coumba@gmail.com", "nzinounoup@gmail.com"]
 
 export default function Admin() {
   const [utilisateur, setUtilisateur] = useState<any>(null)
@@ -23,19 +20,17 @@ export default function Admin() {
   const navigate = useNavigate()
 
 useEffect(function() {
-  const desabonner = auth.onAuthStateChanged(function(user) {
-    if (!user) { 
-      navigate('/connexion')
-      return 
-    }
-    if (!ADMINS.includes(user.email || "")) { 
-      navigate('/dashboard')
-      return 
-    }
-    setUtilisateur(user)
-  })
-  
-  return desabonner
+  const brut = localStorage.getItem('user')
+  if (!brut) {
+    navigate('/connexion')
+    return
+  }
+  const user = JSON.parse(brut)
+  if (user.role !== 'admin') {
+    navigate('/dashboard')
+    return
+  }
+  setUtilisateur(user)
 }, [])
 
 
@@ -52,9 +47,11 @@ useEffect(function() {
     chargerToutesReservations()
   }, [utilisateur])
 
-  async function deconnecter() {
-    await signOut(auth)
-    navigate('/')
+  function deconnecter() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    window.dispatchEvent(new Event('auth-change'))
+    navigate('/connexion')
   }
 
   async function supprimerReservation(reservation: any) {
