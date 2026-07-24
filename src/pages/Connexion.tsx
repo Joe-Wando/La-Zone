@@ -56,7 +56,7 @@ async function connecter() {
 
     localStorage.setItem('token', resultat.accessToken)
     localStorage.setItem('user', JSON.stringify(resultat.user))
-
+    window.dispatchEvent(new Event('auth-change'))
     navigate('/')
   } catch (e: any) {
     setErreur(e.message)
