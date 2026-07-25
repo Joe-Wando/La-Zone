@@ -1,15 +1,13 @@
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { useFilms } from "../hooks/useFilms"
 import { useState, useEffect } from "react"
 import { apiFetch } from "../api"
 
 export default function Reservation() {
   const { id } = useParams()
-  const naviguer = useNavigate()
   const { films, chargement } = useFilms()
 
   const film = films.find(f => f.id === id)
-  const utilisateur = JSON.parse(localStorage.getItem('user') || '{}')
 
   const [seances, setSeances] = useState<any[]>([])
   const [seanceSelectionnee, setSeanceSelectionnee] = useState<string>("")
