@@ -77,6 +77,11 @@ export default function Films() {
                   <div className="absolute bottom-0 left-0 right-0 p-4"
                     style={{ background: 'linear-gradient(to top, black, transparent)' }}>
                     <p className="font-bold text-white text-sm leading-tight">{film.titre}</p>
+                    {film.genre && (
+                      <p className="text-xs mt-0.5" style={{ color: '#888888' }}>
+                        {film.genre.split(',')[0].trim()}
+                      </p>
+                    )}
                   </div>
 
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-300 flex flex-col items-center justify-center gap-3 p-4"
