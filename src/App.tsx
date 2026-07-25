@@ -51,7 +51,7 @@ export default function App() {
           <Route path="/" element={
             connecte ? <Acceuil /> : <Navigate to="/connexion" />
           } />
-          <Route path="/Films" element={
+          <Route path="/films" element={
             <RouteProtegee><Films /></RouteProtegee>
           } />
           <Route path="/reservation/:id" element={

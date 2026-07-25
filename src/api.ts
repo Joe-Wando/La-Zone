@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3000";
+const API_URL = "https://la-zone-backend-production.up.railway.app";
 
 function getToken(): string | null {
   return localStorage.getItem("token");
