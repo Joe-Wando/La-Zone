@@ -10,6 +10,8 @@ import Connexion from './pages/Connexion'
 import Dashboard from './pages/Dashboard'
 import RouteProtegee from './composants/RouteProtegee'
 import Admin from './pages/Admin'
+import ConfirmationPaiement from './pages/ConfirmationPaiement'
+import PaiementErreur from './pages/PaiementErreur'
 
 export default function App() {
   const [connecte, setConnecte] = useState<boolean | null>(null)
@@ -62,6 +64,12 @@ export default function App() {
           } />
           <Route path="/admin" element={
             <RouteProtegee><Admin /></RouteProtegee>
+          } />
+          <Route path="/paiement/succes" element={
+            <RouteProtegee><ConfirmationPaiement /></RouteProtegee>
+          } />
+          <Route path="/paiement/erreur" element={
+            <RouteProtegee><PaiementErreur /></RouteProtegee>
           } />
           <Route path="*" element={<Navigate to="/connexion" />} />
         </Routes>
