@@ -6,9 +6,22 @@ export default function Films() {
   const naviguer = useNavigate()
   const { films, chargement } = useFilms()
   const [recherche, setRecherche] = useState("")
+  const [genreSelectionne, setGenreSelectionne] = useState("")
+
+  const tousLesGenres = Array.from(
+    new Set(
+      films
+        .flatMap(function(film) {
+          return film.genre ? film.genre.split(',').map(function(g) { return g.trim() }) : []
+        })
+        .filter(Boolean)
+    )
+  ).sort()
 
   const filmsFiltres = films.filter(function(film) {
-    return film.titre.toLowerCase().includes(recherche.toLowerCase())
+    const matchRecherche = film.titre.toLowerCase().includes(recherche.toLowerCase())
+    const matchGenre = genreSelectionne === "" || (film.genre && film.genre.split(',').map(function(g) { return g.trim() }).includes(genreSelectionne))
+    return matchRecherche && matchGenre
   })
 
   return (
@@ -19,22 +32,34 @@ export default function Films() {
         <p className="text-sm mb-1" style={{ color: '#888888' }}>Catalogue complet</p>
         <h1 className="text-4xl font-bold mb-6">Nos films</h1>
 
-        <div className="relative max-w-md">
-          <input
-            type="text"
-            placeholder="Rechercher un film..."
-            value={recherche}
-            onChange={e => setRecherche(e.target.value)}
-            className="w-full text-white pl-4 pr-4 py-3 rounded-xl focus:outline-none transition"
-            style={{ backgroundColor: '#111111', border: '1px solid #222222' }}
-          />
-          {recherche && (
-            <button onClick={() => setRecherche("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 transition hover:text-white"
-              style={{ color: '#888888' }}>
-              X
-            </button>
-          )}
+        <div className="flex flex-col sm:flex-row gap-3 max-w-2xl">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Rechercher un film..."
+              value={recherche}
+              onChange={e => setRecherche(e.target.value)}
+              className="w-full text-white pl-4 pr-4 py-3 rounded-xl focus:outline-none transition"
+              style={{ backgroundColor: '#111111', border: '1px solid #222222' }}
+            />
+            {recherche && (
+              <button onClick={() => setRecherche("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 transition hover:text-white"
+                style={{ color: '#888888' }}>
+                X
+              </button>
+            )}
+          </div>
+          <select
+            value={genreSelectionne}
+            onChange={e => setGenreSelectionne(e.target.value)}
+            className="text-white py-3 px-4 rounded-xl focus:outline-none transition"
+            style={{ backgroundColor: '#111111', border: '1px solid #222222' }}>
+            <option value="">Tous les genres</option>
+            {tousLesGenres.map(function(genre) {
+              return <option key={genre} value={genre}>{genre}</option>
+            })}
+          </select>
         </div>
 
         <p className="text-sm mt-4" style={{ color: '#888888' }}>
@@ -50,12 +75,12 @@ export default function Films() {
         ) : filmsFiltres.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-lg" style={{ color: '#888888' }}>
-              Aucun film trouve pour "{recherche}"
+              Aucun film trouve{recherche ? ` pour "${recherche}"` : ""}{genreSelectionne ? ` en ${genreSelectionne}` : ""}
             </p>
-            <button onClick={() => setRecherche("")}
+            <button onClick={function() { setRecherche(""); setGenreSelectionne("") }}
               className="text-sm mt-3 inline-block hover:underline"
               style={{ color: '#00A651' }}>
-              Effacer la recherche
+              Effacer les filtres
             </button>
           </div>
         ) : (
@@ -77,6 +102,11 @@ export default function Films() {
                   <div className="absolute bottom-0 left-0 right-0 p-4"
                     style={{ background: 'linear-gradient(to top, black, transparent)' }}>
                     <p className="font-bold text-white text-sm leading-tight">{film.titre}</p>
+                    {film.genre && (
+                      <p className="text-xs mt-0.5" style={{ color: '#888888' }}>
+                        {film.genre.split(',')[0].trim()}
+                      </p>
+                    )}
                   </div>
 
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-300 flex flex-col items-center justify-center gap-3 p-4"
