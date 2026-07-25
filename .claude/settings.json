@@ -3,7 +3,8 @@
     "allow": [
       "Bash(Remove-Item \"c:\\\\Users\\\\DIPO WANDO\\\\Desktop\\\\Projet\\\\La-Zone\\\\src\\\\pages\\\\ReinitialisationMotDePasse.tsx\")",
       "Bash(git commit *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }
