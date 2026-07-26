@@ -21,16 +21,16 @@ export default function ConfirmationPaiement() {
   async function verifier(n: number) {
     try {
       const data = await apiFetch('/reservations')
-      const derniere = data[data.length - 1]
+      const derniere = data.filter((r: any) => r.statut !== 'annulee').pop()
       if (!derniere) {
         setErreur("Aucune réservation trouvée.")
         return
       }
       if (derniere.statut === 'confirmed') {
         setReservation(derniere)
-      } else if (n < 5) {
+      } else if (n < 10) {
         setTentative(n + 1)
-        setTimeout(function() { verifier(n + 1) }, 2000)
+        setTimeout(function() { verifier(n + 1) }, 3000)
       } else {
         setErreur("La confirmation prend du temps. Vérifiez votre tableau de bord.")
       }
@@ -77,7 +77,7 @@ export default function ConfirmationPaiement() {
         </div>
         <h2 className="text-xl font-bold text-white mb-2">Confirmation en cours...</h2>
         <p className="text-sm" style={{ color: "#888888" }}>
-          {tentative > 0 ? `Tentative ${tentative}/5...` : "Vérification du paiement..."}
+          {tentative > 0 ? `Tentative ${tentative}/10...` : "Vérification du paiement..."}
         </p>
       </div>
     )
