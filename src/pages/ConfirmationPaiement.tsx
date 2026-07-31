@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../api'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 
 export default function ConfirmationPaiement() {
   const naviguer = useNavigate()
+  const [searchParams] = useSearchParams()
   const ticketRef = useRef<HTMLDivElement>(null)
   const utilisateur = JSON.parse(localStorage.getItem('user') || '{}')
 
@@ -15,22 +16,22 @@ export default function ConfirmationPaiement() {
   const [telechargement, setTelechargement] = useState(false)
 
   useEffect(function() {
-    verifier(0)
+    const reservationId = searchParams.get('reservationId')
+    if (!reservationId) {
+      setErreur("Réservation introuvable dans l'URL de retour.")
+      return
+    }
+    verifier(reservationId, 0)
   }, [])
 
-  async function verifier(n: number) {
+  async function verifier(reservationId: string, n: number) {
     try {
-      const data = await apiFetch('/reservations')
-      const derniere = data.filter((r: any) => r.statut !== 'annulee').pop()
-      if (!derniere) {
-        setErreur("Aucune réservation trouvée.")
-        return
-      }
+      const derniere = await apiFetch(`/reservations/${reservationId}`)
       if (derniere.statut === 'confirmed') {
         setReservation(derniere)
       } else if (n < 10) {
         setTentative(n + 1)
-        setTimeout(function() { verifier(n + 1) }, 3000)
+        setTimeout(function() { verifier(reservationId, n + 1) }, 3000)
       } else {
         setErreur("La confirmation prend du temps. Vérifiez votre tableau de bord.")
       }
